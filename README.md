@@ -1,4 +1,4 @@
-# 🏢 Insurellm RAG — Expert Q&A System
+# 🏢 Qafela (قافلة) RAG — Expert Q&A System
 
 A complete, end-to-end **Retrieval-Augmented Generation (RAG)** project for an insurance tech company knowledge base.
 
