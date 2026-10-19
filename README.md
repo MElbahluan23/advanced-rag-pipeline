@@ -1,147 +1,175 @@
-# 🏢 Qafela (قافلة) RAG — Expert Q&A System
+# Qafela (قافلة) RAG
 
-A complete, end-to-end **Retrieval-Augmented Generation (RAG)** project for an insurance tech company knowledge base.
+An end-to-end retrieval-augmented generation project. A local Llama model writes a synthetic knowledge base for **Qafela (قافلة)**, an Egyptian insurance-tech company in Cairo, then two RAG pipelines answer questions about it and are scored on the same test set.
 
-Two RAG pipelines — from a simple LangChain baseline to a production-grade system with LLM re-ranking and query rewriting — all built on a **synthetically generated knowledge base** created with `llama3.2` running locally via **Ollama** (free, no API key needed).
+The founder and CEO in the generated data is **Mohamed Elbahluan**.
 
 ---
 
-## 🗂️ Project Structure
+## Project structure
 
 ```
 insurellm-rag/
 ├── notebooks/
-│   ├── 01_build_synthetic_data.ipynb   ← Generate the knowledge base with Llama-3.2-3B
-│   └── 02_rag_implementations.ipynb    ← Full RAG walkthrough: Simple → Pro + Gradio UI
-├── knowledge-base/                     ← Generated .md files (auto-created by notebook 01)
+│   ├── 01_build_synthetic_data.ipynb   # Knowledge base + evaluation tests
+│   └── 02_rag_implementations.ipynb    # Simple RAG, pro RAG, then a comparison
+├── knowledge-base/                     # Markdown written by notebook 01
 │   ├── company/
 │   ├── employees/
 │   ├── products/
 │   └── contracts/
-├── .env.example                        ← Template for API keys
+├── evaluation/
+│   └── tests.jsonl                     # One test question per line
+├── .env.example
 ├── requirements.txt
 └── README.md
 ```
 
-> Everything lives in the two notebooks — no separate `.py` files needed.
+Both pipelines live in the notebooks. There are no separate application modules.
 
 ---
 
-## 🚀 Quick Start
+## Quick start
 
-### 1. Clone & install
+### 1. Install
 
 ```bash
-git clone https://github.com/your-username/insurellm-rag.git
+git clone git@github.com:MElbahluan23/insurellm-rag.git
 cd insurellm-rag
 pip install -r requirements.txt
 ```
 
-### 2. Set up Ollama (for notebook 01)
+### 2. Start Ollama for notebook 01
 
 ```bash
-# Install Ollama from https://ollama.com, then:
 ollama pull llama3.2
-ollama serve   # starts the local server (runs in background)
+ollama serve
 ```
 
-No API key needed — runs 100% locally and free!
+Notebook 01 calls Llama locally. It does not need an API key.
 
-### 3. Set up your OpenAI key (for notebook 02)
+### 3. Add an OpenAI key for notebook 02
 
 ```bash
 cp .env.example .env
-# Add your OPENAI_API_KEY
 ```
 
-### 4. Run Notebook 01 — Build the Knowledge Base
+Put `OPENAI_API_KEY` in `.env`. Embeddings use OpenAI. The pro pipeline and the answer judge use LiteLLM, so a Groq key is optional if you keep the Groq model in notebook 02.
 
-Open **`notebooks/01_build_synthetic_data.ipynb`** and run all cells.
+### 4. Run notebook 01
 
-Generates ~80+ `.md` files in `knowledge-base/` using `llama3.2` via Ollama:
-- 4 company pages (about, overview, culture, careers)
-- 10 employee HR profiles
-- 8 product spec sheets
-- 16 client contracts
+Open `notebooks/01_build_synthetic_data.ipynb` and run it from the top.
 
-> ⚡ ~5-10 minutes depending on your machine.
+Steps 4–7 write the knowledge base:
 
-### 4. Run Notebook 02 — RAG Implementations
+| Folder | Files |
+|---|---|
+| `company/` | 4 pages: about, overview, culture, careers |
+| `employees/` | 32 Egyptian employee profiles |
+| `products/` | 8 product sheets |
+| `contracts/` | 16 contracts with Egyptian insurers, amounts in EGP |
 
-Open **`notebooks/02_rag_implementations.ipynb`** and run it step by step.
+Step 10 reads those markdown files and writes `evaluation/tests.jsonl`. Each line is one question whose keywords and reference answer come from that file. A question is kept only when every keyword appears in the source document.
 
-Covers both pipelines end-to-end and launches a **Gradio UI** at the end.
+### 5. Run notebook 02
+
+Open `notebooks/02_rag_implementations.ipynb` and run it in order.
+
+1. **Simple RAG** splits documents on a fixed size, embeds them, and answers from one vector search.
+2. **Pro RAG** asks the model to chunk each document, rewrites the question, searches twice, and re-ranks the chunks.
+3. **Compare Simple vs Pro** loads `evaluation/tests.jsonl` and scores both pipelines.
+
+`MAX_TESTS` at the bottom of notebook 02 defaults to 5. Raise it when you want the full file.
 
 ---
 
-## 📊 Simple vs Pro Implementation
+## How a test line is shaped
 
-| Feature | Simple | Pro |
+This matches `TestQuestion` in the course file `week5/evaluation/test.py`:
+
+```json
+{"question": "Who is the CEO of Qafela?", "keywords": ["Mohamed", "Elbahluan", "CEO"], "reference_answer": "Mohamed Elbahluan is the Co-Founder and CEO of Qafela.", "category": "direct_fact"}
+```
+
+The generator aims for the same mix as the course set: 70 `direct_fact`, 20 `temporal`, 20 `spanning`, 10 `comparative`, 10 `numerical`, 10 `relationship`, and 10 `holistic`.
+
+---
+
+## How the comparison is scored
+
+The last cell of notebook 02 follows `week5/evaluation/eval.py`.
+
+| Score | What it measures |
+|---|---|
+| Retrieval MRR | How high the first chunk containing each keyword is ranked |
+| Retrieval nDCG | Whether relevant chunks sit near the top |
+| Keyword coverage | Share of keywords found in the retrieved chunks |
+| Accuracy | Judge score, 1–5, against the reference answer |
+| Completeness | Judge score, 1–5, for covering the reference answer |
+| Relevance | Judge score, 1–5, for answering only the question |
+
+---
+
+## Simple vs pro
+
+| | Simple | Pro |
 |---|---|---|
-| **Chunking** | Fixed-size (500 chars, LangChain) | LLM-generated (headline + summary + original text) |
-| **Vector DB** | LangChain Chroma wrapper | Raw `chromadb.PersistentClient` |
-| **Query** | Raw user question | LLM rewrites query from conversation context |
-| **Retrieval** | One vector search | Two searches (original + rewritten), merged |
-| **Re-ranking** | ❌ | ✅ LLM re-ranks by relevance |
-| **Retry logic** | ❌ | ✅ Exponential backoff on all LLM calls |
-| **Best for** | Learning / prototyping | Production |
+| Chunking | Fixed size, 500 characters | Model writes a headline, summary, and original text |
+| Vector store | LangChain Chroma | Raw Chroma client |
+| Query | The user question as written | Model rewrites the question from the conversation |
+| Search | One search | Original question and rewritten question, merged |
+| Ranking | Vector similarity | Model re-ranks the chunks |
+| Retries | None | Exponential backoff |
 
 ---
 
-## 🧠 How RAG Works
+## Flow
 
 ```
-INGEST (run once per implementation):
-  knowledge-base/*.md
-    → Chunk text
-    → Embed (OpenAI text-embedding-3-large)
-    → Store in ChromaDB
+Notebook 01
+  llama3.2 writes knowledge-base/**/*.md
+  llama3.2 reads those files and writes evaluation/tests.jsonl
 
-ANSWER (every query):
-  User Question
-    → [Pro: LLM rewrites query]
-    → Vector search ChromaDB
-    → [Pro: dual search + LLM re-rank]
-    → Top-K chunks → System Prompt → LLM → Answer
+Notebook 02
+  chunk and embed the markdown
+  simple pipeline answers from one search
+  pro pipeline rewrites, searches twice, and re-ranks
+  both answers are scored with the test file
 ```
 
 ---
 
-## ⚙️ Customize
+## Change the company
 
-### Use a different model for synthetic data
+Edit `COMPANY` in notebook 01, Step 2, then rerun the notebook. Delete old files in `knowledge-base/` first so previous names do not stay mixed in.
 
-In `notebooks/01_build_synthetic_data.ipynb` (Step 2):
-```python
-MODEL_ID = "llama3.2"      # default — already installed via Ollama
-# MODEL_ID = "mistral"     # ollama pull mistral
-# MODEL_ID = "qwen2.5:14b" # ollama pull qwen2.5:14b (higher quality)
-```
-
-### Generate a knowledge base for your own company
-
-Edit the `COMPANY` dict in notebook 01:
 ```python
 COMPANY = {
-    "name":    "YourCompany",
-    "founded": 2020,
-    "founder": "Jane Doe",
-    "industry": "FinTech",
-    "products": [...],
-    "employee_roles": [...],
+    "name": "Qafela (قافلة)",
+    "founded": 2015,
+    "founder": "Mohamed Elbahluan",
+    "hq": "Cairo, Egypt",
+    "employee_roles": [...],   # 32 people
+    "clients_per_product": 2,  # 8 products x 2 = 16 contracts
 }
 ```
 
+To switch the local model:
+
+```python
+MODEL_ID = "llama3.2"
+# MODEL_ID = "mistral"
+# MODEL_ID = "qwen2.5:14b"
+```
+
 ---
 
-## 📦 Requirements
+## Requirements
 
 - Python 3.10+
-- OpenAI API key (RAG pipeline)
-- HuggingFace token (data generation)
+- [Ollama](https://ollama.com) with `llama3.2` for notebook 01
+- An OpenAI API key for embeddings in notebook 02
 
----
-
-## 📄 License
+## License
 
 MIT
