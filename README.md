@@ -48,17 +48,31 @@ cp .env.example .env
 # Edit .env and add your OPENAI_API_KEY
 ```
 
-### 3. Generate the knowledge base
+### 3. Add your API keys to `.env`
+
+```bash
+cp .env.example .env
+```
+
+| Key | Used for |
+|-----|----------|
+| `OPENAI_API_KEY` | RAG embeddings + answer pipeline |
+| `HF_TOKEN` | Synthetic data generation (Llama via HuggingFace Inference API) |
+
+Get your HuggingFace token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)  
+Then accept the model license at [meta-llama/Llama-3.2-3B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct)
+
+### 4. Generate the knowledge base
 
 Open and run **`notebooks/01_build_synthetic_data.ipynb`** top to bottom.
 
-This generates ~80+ markdown files in `knowledge-base/` using GPT:
+This generates ~80+ markdown files in `knowledge-base/` using **`meta-llama/Llama-3.2-3B-Instruct`**:
 - 4 company pages
 - 10 employee profiles
 - 8 product spec sheets
 - 16 client contracts
 
-> ⚡ Takes ~3-5 minutes. Uses `gpt-4.1-nano` by default (cheap). Upgrade to `gpt-4o` for higher quality.
+> ⚡ Takes ~3-5 minutes via the HuggingFace Inference API (free tier).
 
 ### 4. Run the RAG pipeline (notebook)
 
@@ -111,7 +125,16 @@ ANSWER (every query):
 
 ## ⚙️ Configuration
 
-### Change the LLM model
+### Change the synthetic data model
+
+In `notebooks/01_build_synthetic_data.ipynb`:
+```python
+MODEL_ID = "meta-llama/Llama-3.2-3B-Instruct"   # default — free HF Inference API
+# MODEL_ID = "meta-llama/Llama-3.1-8B-Instruct"  # larger, better quality
+# MODEL_ID = "mistralai/Mistral-7B-Instruct-v0.3"
+```
+
+### Change the RAG answer model
 
 In `implementation/answer.py` and `implementation/ingest.py`:
 ```python
