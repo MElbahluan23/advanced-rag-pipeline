@@ -10,11 +10,10 @@ __pycache__/
 venv/
 env/
 
-# Jupyter
+# Jupyter checkpoints
 .ipynb_checkpoints/
-*.ipynb_checkpoints
 
-# Vector databases (generated — run ingest to recreate)
+# Vector databases (generated — run notebook 02 ingest cells to recreate)
 vector_db/
 preprocessed_db/
 
@@ -25,4 +24,3 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
-*.cursor
