@@ -17,6 +17,10 @@ env/
 vector_db/
 preprocessed_db/
 
+# Generated data (run notebook 01 to recreate)
+evaluation/
+knowledge-base/
+
 # OS
 .DS_Store
 Thumbs.db
